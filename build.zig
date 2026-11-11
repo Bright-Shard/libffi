@@ -206,9 +206,6 @@ pub fn build(b: *std.Build) !void {
         .flags = cflags,
     });
 
-    inline for (.{ "include", "src", b.pathJoin(&.{ "src", arch_name }) }) |inc|
-        mod.addIncludePath(upstream.path(inc));
-
     const double_size = t.cTypeByteSize(.double).?;
     const long_double_size = t.cTypeByteSize(.longdouble).?;
 
@@ -323,6 +320,17 @@ pub fn build(b: *std.Build) !void {
         .mips64 => fficonfig_h.addValues(.{ .HAVE_LONG_DOUBLE = .@"defined(__mips64)" }),
     }
 
+    const translation_module = b.addTranslateC(.{
+        .root_source_file = ffi_h.getOutputFile(),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    inline for (.{ "include", "src", b.pathJoin(&.{ "src", arch_name }) }) |inc| {
+        mod.addIncludePath(upstream.path(inc));
+        translation_module.addIncludePath(upstream.path(inc));
+    }
+
     inline for (.{ fficonfig_h, ffi_h }) |hdr|
         mod.addConfigHeader(hdr);
 
@@ -338,4 +346,6 @@ pub fn build(b: *std.Build) !void {
     // libffi has historically put its header files directly in the include path, rather than a subdirectory.
     lib.installConfigHeader(ffi_h);
     lib.installHeader(upstream.path(b.pathJoin(&.{ "src", arch_name, "ffitarget.h" })), "ffitarget.h");
+
+    _ = translation_module.addModule("libffi");
 }
